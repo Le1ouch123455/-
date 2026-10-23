@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1420">
+  <meta name="description" content="FinBI — внутренний BI-дашборд финансовой аналитики: KPI, выручка, воронка, сегментация.">
+  <title>FinBI — Панель финансовой аналитики</title>
+
+  <!-- 4.2. КРИТИЧНО: тема применяется ДО рендера DOM (без вспышки) -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('finbi-theme');
+        var accent = localStorage.getItem('finbi-accent');
+        var theme = saved;
+        if (!theme) {
+          theme = window.matchMedia('(prefers-color-scheme: light)').matches
+            ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+        if (accent) {
+          document.documentElement.style.setProperty('--accent', accent);
+          var rgb = hexToRgb(accent);
+          if (rgb) {
+            document.documentElement.style.setProperty('--accent-rgb', rgb);
+          }
+        }
+      } catch (e) { /* localStorage может быть недоступен */ }
+
+      function hexToRgb(hex) {
+        var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return m
+          ? (parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16))
+          : null;
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 5.2. Skip link -->
+  <a class="skip-link" href="#main-content">Перейти к основному контенту</a>
+
+  <!-- Toast-контейнер (5.1) -->
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- Overlay для мобильного меню -->
+  <div class="nav-overlay" id="nav-overlay" hidden></div>
+
+  <!-- ================= HEADER ================= -->
+  <header class="site-header">
+    <button type="button" class="burger" id="burger"
+            aria-label="Открыть меню" aria-expanded="false" aria-controls="sidebar">
+      <span class="burger__line"></span>
+      <span class="burger__line"></span>
+      <span class="burger__line"></span>
+    </button>
+
+    <figure class="brand">
+      <svg width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Логотип FinBI">
+        <rect width="32" height="32" rx="8" fill="currentColor" class="brand__bg"/>
+        <path d="M8 22V10h3v12H8zm6 0V14h3v8h-3zm6 0V7h3v15h-3z" fill="#fff"/>
+      </svg>
+      <figcaption>FinBI Dashboard</figcaption>
+    </figure>
+
+    <form class="search" role="search">
+      <label for="global-search" class="visually-hidden">Поиск по отчётам</label>
+      <input id="global-search" type="search" name="q"
+             placeholder="Поиск отчётов, сделок, сегментов…">
+    </form>
+
+    <!-- 4.2. Переключатель темы + 4.3. Color picker -->
+    <div class="theme-controls" aria-label="Настройки оформления">
+      <div class="theme-switch" role="radiogroup" aria-label="Тема оформления">
+        <button type="button" class="theme-btn" data-theme-set="light"
+                aria-label="Светлая тема" title="Светлая тема">
+          <span aria-hidden="true">☀</span>
+        </button>
+        <button type="button" class="theme-btn" data-theme-set="dark"
+                aria-label="Тёмная тема" title="Тёмная тема">
+          <span aria-hidden="true">☾</span>
+        </button>
+        <button type="button" class="theme-btn" data-theme-set="hc"
+                aria-label="Высококонтрастная тема" title="Высокий контраст">
+          <span aria-hidden="true">◐</span>
+        </button>
+      </div>
+
+      <label class="accent-picker" title="Акцентный цвет">
+        <span class="visually-hidden">Акцентный цвет интерфейса</span>
+        <input type="color" id="accent-color" value="#4f8cff"
+               aria-label="Акцентный цвет интерфейса">
+      </label>
+    </div>
+
+    <nav class="user-nav" aria-label="Профиль пользователя">
+      <ul>
+        <li><a href="#notifications">Уведомления</a></li>
+        <li><a href="#profile">Профиль: А. Аналитик</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- ================= SIDEBAR ================= -->
+  <nav class="sidebar" id="sidebar" aria-label="Основная навигация дашборда">
+    <div class="sidebar__head">
+      <h2 class="sidebar-title">Разделы</h2>
+      <button type="button" class="sidebar__close" id="sidebar-close"
+              aria-label="Закрыть меню">&times;</button>
+    </div>
+
+    <ul>
+      <li><a href="#kpi" aria-current="page">KPI-обзор</a></li>
+      <li><a href="#revenue">Выручка</a></li>
+      <li><a href="#funnel">Воронка сделок</a></li>
+      <li><a href="#segments">Сегментация</a></li>
+      <li><a href="#reports">Отчёты</a></li>
+    </ul>
+
+    <section class="sidebar-note">
+      <h3>Период</h3>
+      <p>
+        <time datetime="2024-01-01">1 янв 2024</time> —
+        <time datetime="2025-03-31">31 мар 2025</time>
+      </p>
+    </section>
+  </nav>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main-content" id="main-content">
+
+    <!-- KPI -->
+    <section id="kpi" aria-labelledby="kpi-heading">
+      <header class="section-header">
+        <h1 id="kpi-heading">KPI-обзор</h1>
+        <p>Ключевые показатели эффективности за выбранный период.</p>
+      </header>
+      <!-- Skeleton, пока данные "грузятся" -->
+      <ul class="kpi-grid" id="kpi-grid" aria-label="Ключевые показатели" aria-busy="true">
+        <li class="kpi-card skeleton" aria-hidden="true"><span class="sk-line sk-line--sm"></span><span class="sk-line sk-line--lg"></span><span class="sk-line sk-line--md"></span></li>
+        <li class="kpi-card skeleton" aria-hidden="true"><span class="sk-line sk-line--sm"></span><span class="sk-line sk-line--lg"></span><span class="sk-line sk-line--md"></span></li>
+        <li class="kpi-card skeleton" aria-hidden="true"><span class="sk-line sk-line--sm"></span><span class="sk-line sk-line--lg"></span><span class="sk-line sk-line--md"></span></li>
+        <li class="kpi-card skeleton" aria-hidden="true"><span class="sk-line sk-line--sm"></span><span class="sk-line sk-line--lg"></span><span class="sk-line sk-line--md"></span></li>
+      </ul>
+    </section>
+
+    <!-- REVENUE -->
+    <section id="revenue" aria-labelledby="revenue-heading">
+      <header class="section-header">
+        <h2 id="revenue-heading">Динамика выручки</h2>
+        <p>Помесячная выручка по каналам продаж. Кликните по строке для деталей.</p>
+      </header>
+
+      <figure class="chart" aria-labelledby="revenue-chart-caption">
+        <ul class="revenue-bars" id="revenue-bars" aria-busy="true">
+          <li class="revenue-bar skeleton" aria-hidden="true"><span class="sk-bar"></span></li>
+          <li class="revenue-bar skeleton" aria-hidden="true"><span class="sk-bar"></span></li>
+          <li class="revenue-bar skeleton" aria-hidden="true"><span class="sk-bar"></span></li>
+          <li class="revenue-bar skeleton" aria-hidden="true"><span class="sk-bar"></span></li>
+          <li class="revenue-bar skeleton" aria-hidden="true"><span class="sk-bar"></span></li>
+          <li class="revenue-bar skeleton" aria-hidden="true"><span class="sk-bar"></span></li>
+        </ul>
+        <figcaption id="revenue-chart-caption">
+          Столбчатая диаграмма выручки по месяцам, 2024–2025
+        </figcaption>
+      </figure>
+
+      <!-- ФИЛЬТРЫ -->
+      <form class="filters" id="filters-form" role="search" aria-label="Фильтры выручки">
+        <fieldset class="filters-group">
+          <legend>Поиск</legend>
+          <label class="field">
+            <span class="field-label">Название периода</span>
+            <input type="search" name="query" placeholder="Например, март" autocomplete="off">
+          </label>
+        </fieldset>
+
+        <fieldset class="filters-group">
+          <legend>Канал</legend>
+          <label class="field">
+            <span class="field-label">Выберите канал</span>
+            <select name="channel">
+              <option value="">Все каналы</option>
+              <option value="online">Онлайн</option>
+              <option value="retail">Розница</option>
+            </select>
+          </label>
+        </fieldset>
+
+        <fieldset class="filters-group">
+          <legend>Статус</legend>
+          <label class="check">
+            <input type="checkbox" name="status" value="confirmed" checked>
+            <span>Подтверждено</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" name="status" value="forecast">
+            <span>Прогноз</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" name="status" value="at_risk">
+            <span>Риск</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="filters-group">
+          <legend>Вид</legend>
+          <label class="radio">
+            <input type="radio" name="view" value="table" checked>
+            <span>Таблица</span>
+          </label>
+          <label class="radio">
+            <input type="radio" name="view" value="cards">
+            <span>Карточки</span>
+          </label>
+        </fieldset>
+
+        <button type="reset" class="btn btn--ghost">Сбросить</button>
+      </form>
+
+      <!-- ТАБЛИЦА -->
+      <div class="table-wrap">
+        <table class="data-table" id="revenue-table">
+          <caption>Выручка по месяцам и каналам</caption>
+          <thead>
+            <tr>
+              <th scope="col">
+                <button type="button" class="sort-btn" data-sort="title">
+                  Период <span class="sort-arrow" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th scope="col">
+                <button type="button" class="sort-btn" data-sort="status">
+                  Статус <span class="sort-arrow" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th scope="col">Канал</th>
+              <th scope="col">
+                <button type="button" class="sort-btn" data-sort="amount">
+                  Сумма, ₽ <span class="sort-arrow" aria-hidden="true"></span>
+                </button>
+              </th>
+              <th scope="col">
+                <button type="button" class="sort-btn" data-sort="growthPercent">
+                  Рост, % <span class="sort-arrow" aria-hidden="true"></span>
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="revenue-table-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Пустое состояние (5.4) -->
+      <div class="empty-state" id="revenue-empty" hidden>
+        <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r="30" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="2"/>
+          <path d="M20 40h24M24 32h16M28 24h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-opacity=".5"/>
+        </svg>
+        <p>Нет данных по выбранным фильтрам</p>
+        <button type="button" class="btn btn--ghost" id="reset-filters">Сбросить фильтры</button>
+      </div>
+
+      <ul class="data-cards" id="revenue-cards" hidden aria-label="Выручка в виде карточек"></ul>
+    </section>
+
+    <!-- FUNNEL -->
+    <section id="funnel" aria-labelledby="funnel-heading">
+      <header class="section-header">
+        <h2 id="funnel-heading">Воронка сделок</h2>
+        <p>Сделки по стадиям воронки продаж. Кликните для деталей.</p>
+      </header>
+      <ol class="funnel" id="funnel-list" aria-label="Сделки по стадиям воронки"></ol>
+    </section>
+
+    <!-- SEGMENTS -->
+    <section id="segments" aria-labelledby="segments-heading">
+      <header class="section-header">
+        <h2 id="segments-heading">Сегментация клиентов</h2>
+        <p>Клиентские сегменты и их вклад в выручку.</p>
+      </header>
+      <ul class="segments-grid" id="segments-grid" aria-label="Сегменты клиентов"></ul>
+    </section>
+
+  </main>
+
+  <!-- ================= ASIDE ================= -->
+  <aside class="extra-panel" aria-labelledby="aside-heading">
+    <h2 id="aside-heading">Дополнительно</h2>
+
+    <section>
+      <h3>Контакты аналитика</h3>
+      <address>
+        Отдел аналитики FinBI<br>
+        <a href="mailto:analytics@finbi.example">analytics@finbi.example</a><br>
+        <a href="tel:+74951234567">+7 (495) 123-45-67</a>
+      </address>
+    </section>
+
+    <section>
+      <h3>Обновлено</h3>
+      <p><time datetime="2025-03-31T18:00:00+03:00">31 марта 2025, 18:00 MSK</time></p>
+    </section>
+
+    <section>
+      <h3>Легенда</h3>
+      <ul>
+        <li><span class="dot dot--confirmed" aria-hidden="true"></span> Подтверждено</li>
+        <li><span class="dot dot--forecast" aria-hidden="true"></span> Прогноз</li>
+        <li><span class="dot dot--risk" aria-hidden="true"></span> Риск</li>
+      </ul>
+    </section>
+  </aside>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="site-footer">
+    <p>&copy; <time datetime="2025">2025</time> FinBI. Внутренний BI-дашборд.</p>
+    <nav aria-label="Правовая информация">
+      <ul>
+        <li><a href="#privacy">Конфиденциальность</a></li>
+        <li><a href="#support">Поддержка</a></li>
+      </ul>
+    </nav>
+  </footer>
+
+  <!-- ================= МОДАЛЬНОЕ ОКНО ================= -->
+  <div class="modal-backdrop" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
+      <header class="modal-header">
+        <h2 id="modal-title">Детали</h2>
+        <button type="button" class="modal-close" aria-label="Закрыть окно">
+          &times;
+        </button>
+      </header>
+      <div class="modal-body" id="modal-body"></div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn--ghost" data-modal-close>Закрыть</button>
+        <button type="button" class="btn btn--primary">Экспорт</button>
+      </footer>
+    </div>
+  </div>
+
+<script type="module" src="app.js"></script>
+<script type="module" src="data.js"></script>
+<script type="module" src="renderer.js"></script>
+</body>
+</html>
